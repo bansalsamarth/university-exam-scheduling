@@ -16,7 +16,7 @@ TIME_SLOTS = 5
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
 class Course:
-    def __init__(self, id, code, student_list):
+    def __init__(self, id, code, student_list, old_day, old_slot):
         self.id = id
         self.course_code = code
         self.student_list = student_list
@@ -27,6 +27,8 @@ class Course:
         self.adjacency_list = []
         self.color = None #Assign a color object here
         self.lecture_hall = None
+        self.old_day = old_day
+        self.old_slot = old_slot
 
     def ordered_adjacency_list(self):
         #What is order?
@@ -60,7 +62,7 @@ class Color:
         return available_halls
 
 class LectureHall:
-    def __init__(self, number, total_capacity, color):
+    def __init__(self, number, odd_capacity, even_capacity, color):
         self.number = 0
         self.color = color
         
@@ -71,7 +73,8 @@ class LectureHall:
         self.odd = 0
         self.even = 0
 
-        self.total_capacity = total_capacity
+        self.odd_capacity = odd_capacity
+        self.even_capacity = even_capacity
 
     def availability(self):
         if self.odd and self.even:
@@ -150,6 +153,17 @@ def initialize_lecture_halls(color_list):
         for number, capacity in data.iteritems():
             lec_hall = LectureHall(number, capacity, color)
             color.lecture_halls.append(lec_hall)
+
+def initialize_students():
+    with open('data_student.json') as data_file:
+        data = json.load(data_file)
+
+    student_list = []
+
+    for roll, courses in data.iteritems():
+        student_list.append(Student(roll, courses))
+
+    return student_list
 
 def dis_2(color_1, color_2):
     return abs(color_1.day - color_2.day)
