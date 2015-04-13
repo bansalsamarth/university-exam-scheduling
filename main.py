@@ -151,7 +151,6 @@ def initialize_lecture_halls(color_list):
             lec_hall = LectureHall(number, capacity, color)
             color.lecture_halls.append(lec_hall)
 
-
 def dis_2(color_1, color_2):
     return abs(color_1.day - color_2.day)
 
@@ -167,7 +166,6 @@ def total_dis(color_1, color_2):
     d1 = dis_1(color_1, color_2)
 
     return GAMMA*d2 + d1
-
 
 def get_first_node_color(course):
     pass
