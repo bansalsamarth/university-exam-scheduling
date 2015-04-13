@@ -23,6 +23,10 @@ class Course:
         self.adjacency_list = []
         self.color = None #Assign a color object here
 
+    def ordered_adjacency_list(self):
+        #What is order?
+        return self.adjacency_list
+
     def assign_color(self, color):
         self.color = color
         color.courses.append(self)
@@ -89,7 +93,7 @@ def calculate_degree(matrix, courses):
         courses[i].degree = np.sum(matrix[i]!= 0)
 
 def build_weight_matrix():
-    with open('data_cj.json') as data_file:
+    with open('data_course.json') as data_file:
         data = json.load(data_file)
 
     courses=[]
@@ -192,12 +196,50 @@ def total_dis(color_1, color_2):
 
     return GAMMA*d2 + d1
 
-graph, course_list = build_weight_matrix()
 
-calculate_degree(graph, course_list)
+if __name__ == "__main__":
+    graph, course_list = build_weight_matrix()
+    calculate_degree(graph, course_list)    
 
-#sorted_courses  = Set C according to paper
-sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
-for i in sorted_courses:
-    print i.course_code, i.degree, i.no_of_students
+    sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
+    
+    for i in sorted_courses:
+        print i.course_code, i.degree, i.no_of_students
 
+    num_colored_courses = 0
+    
+    for course in sorted_courses:
+        if num_colored_courses == len(course_list):
+            break #exit loop and finish
+    
+        if not course.color:
+    
+            if sorted_courses.index(course)==1:
+                r_ab = get_first_node_color(course)
+    
+                if r_ab == None:
+                    print "No schedyle is possible"
+                    break 
+    
+            else:
+                r_ab = get_smallest_available_color(course)
+            
+            if r_ab:
+                course.assign_color(r_ab)
+                num_colored_courses+=1 
+                """Update concurrency level of the color - subtract concurrency of course from that of slot
+                Update according to class deginition                
+                """
+    
+        m = course.ordered_adjacency_list(course)
+    
+        for adj_course in m:
+            if not adj_course.color:
+                r_cd = get_smallest_available_color(adj_course)
+    
+                if r_cd:
+                    adj_course.assign_color(r_cd)
+                    num_colored_courses+=1
+                    """Update concurrency level of the color - subtract concurrency of course from that of slot
+                    Update according to class deginition                
+                    """ 
