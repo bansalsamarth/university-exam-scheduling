@@ -7,8 +7,12 @@ import json
 #After that, we use our algorithm to assign find optimum number of lecture halls 
 #ensuring minimum wastage of space.
 
+#For every course, when we return a color, we need to return a LectureHall object as well
+#so that we can record which lecture hall and which seats do the particular course has to occupy
+
 MAX_SCHEDULE_DAYS = 8
 TIME_SLOTS = 5
+
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
 class Course:
@@ -22,6 +26,7 @@ class Course:
         self.concurrency_level = 0 #No of rooms required
         self.adjacency_list = []
         self.color = None #Assign a color object here
+        self.lecture_hall = None
 
     def ordered_adjacency_list(self):
         #What is order?
@@ -54,11 +59,13 @@ class Color:
                 available_halls.append(i)
         return available_halls
 
-
 class LectureHall:
-    def __init__(self, number, total_capacity):
+    def __init__(self, number, total_capacity, color):
         self.number = 0
+        self.color = color
         
+        color.lecture_halls.append(self)
+
         #O implies that odd/even seats are not occupied. 
         #1 implies that odd/even seats are occupied
         self.odd = 0
@@ -77,8 +84,8 @@ class LectureHall:
             return None
 
 class Student:
-    def __init__(self, name, roll_no, courses):
-        self.name = name
+    def __init__(self, roll_no, courses):
+        #self.name = name
         self.roll_no = roll_no
         self.courses_enrolled = courses
 
@@ -92,17 +99,25 @@ def calculate_degree(matrix, courses):
     for i in range(len(courses)):
         courses[i].degree = np.sum(matrix[i]!= 0)
 
+def initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS):
+    color_list = []
+
+    for day in range(1, MAX_SCHEDULE_DAYS+1):
+        for slot in range(1, TIME_SLOTS+1):
+            new_color = Color(day, slot)
+            color_list.append(new_color)
+
+    return color_list
+
 def build_weight_matrix():
     with open('data_course.json') as data_file:
         data = json.load(data_file)
 
     courses=[]
+    counter = 1
     for course_code, students in data.iteritems():
-        courses.append(Course(1, course_code, students))
-    print len(courses)
-
-    #for i in range(len(data)):
-    #    courses.append(Course(id, data[i]["course_code"], data[i]["students"]))
+        courses.append(Course(counter, course_code, students))
+        counter+=1
 
     total = len(courses)
     graph = np.zeros([total, total])
@@ -126,6 +141,33 @@ def build_weight_matrix():
 def build_color_matrix(MAX_SCHEDULE_DAYS, TIME_SLOTS):
     matrix = np.zeros([MAX_SCHEDULE_DAYS, TIME_SLOTS])
     return matrix
+
+def initialize_lecture_halls(color_list):
+    with open('lecture_halls.json') as data_file:
+        data = json.load(data_file)
+
+    for color in color_list:
+        for number, capacity in data.iteritems():
+            lec_hall = LectureHall(number, capacity, color)
+            color.lecture_halls.append(lec_hall)
+
+
+def dis_2(color_1, color_2):
+    return abs(color_1.day - color_2.day)
+
+def dis_1(color_1, color_2):
+    #raisse exception if days not same
+    if color_1.day == color_2.day:
+        return abs(color_1.slot - color_2.slot)
+    else:
+        return "NA"
+
+def total_dis(color_1, color_2):
+    d2 = dis_2(color_1, color_2)
+    d1 = dis_1(color_1, color_2)
+
+    return GAMMA*d2 + d1
+
 
 def get_first_node_color(course):
     pass
@@ -180,32 +222,13 @@ def check_three_exams_contraint(course, color_jk, j):
 
     return True
 
-def dis_2(color_1, color_2):
-    return abs(color_1.day - color_2.day)
-
-def dis_1(color_1, color_2):
-    #raisse exception if days not same
-    if color_1.day == color_2.day:
-        return abs(color_1.slot - color_2.slot)
-    else:
-        return "NA"
-
-def total_dis(color_1, color_2):
-    d2 = dis_2(color_1, color_2)
-    d1 = dis_1(color_1, color_2)
-
-    return GAMMA*d2 + d1
-
-
-if __name__ == "__main__":
+#if __name__ == "__main__":
+def main():
     graph, course_list = build_weight_matrix()
     calculate_degree(graph, course_list)    
 
     sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
     
-    for i in sorted_courses:
-        print i.course_code, i.degree, i.no_of_students
-
     num_colored_courses = 0
     
     for course in sorted_courses:
@@ -218,7 +241,7 @@ if __name__ == "__main__":
                 r_ab = get_first_node_color(course)
     
                 if r_ab == None:
-                    print "No schedyle is possible"
+                    print "No schedule is possible"
                     break 
     
             else:
@@ -242,4 +265,4 @@ if __name__ == "__main__":
                     num_colored_courses+=1
                     """Update concurrency level of the color - subtract concurrency of course from that of slot
                     Update according to class deginition                
-                    """ 
+                    """
