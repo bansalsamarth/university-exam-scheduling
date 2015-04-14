@@ -1,8 +1,8 @@
 import numpy as np
 import json, operator
 
-MAX_SCHEDULE_DAYS = 20
-TIME_SLOTS = 10
+MAX_SCHEDULE_DAYS = 8
+TIME_SLOTS = 5
 
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
@@ -313,7 +313,10 @@ def get_smallest_available_color(course, color_matrix):
                     #exit the current iteration of loop?
                 #TODO
             if valid == True:
-                return color_matrix[j][k], assigned_lh
+                try:
+                    return color_matrix[j][k], assigned_lh
+                except:
+                    return None
                 
     return None    
 
