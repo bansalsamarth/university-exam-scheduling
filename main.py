@@ -38,26 +38,26 @@ class Course:
         self.color = color
         color.courses.append(self)
         #Anything else?
-        return None 
+        return None
 
 class Color:
     def __init__(self, day, slot):
         self.lecture_halls = []
-        self.day = []
-        self.slot = []
+        self.day = day
+        self.slot = slot
         self.courses = []
 
     def capacity_available(self):
+        #Returns max students that can be accomodated
         capacity = 0
         for i in self.lecture_halls:
-            if i.availability:
-                capacity += (i.total_capacity)/2
+            capacity += i.availability['total']
         return capacity
 
     def get_lecture_halls(self, lecture_halls, course):
         available_halls = []
         for i in self.lecture_halls:
-            if i.availability:
+            if i.availability['total']>0:
                 available_halls.append(i)
         return available_halls
 
@@ -78,13 +78,21 @@ class LectureHall:
 
     def availability(self):
         if self.odd and self.even:
-            return "both"
+            return {
+                "O" : self.odd_capacity, 
+                "E" : self.even_capacity, 
+                "total": max(self.odd_capacity, self.even_capacity)
+            }
+
         elif self.odd:
-            return "odd"
-        elif self.even:
-            return "even"
+            return {"O" : self.odd_capacity, "total" : self.odd_capacity}
+
+        else self.even:
+            return {"E" : self.even_capacity, "total" : self.even_capacity}
+
         else:
-            return None
+            return {"total" : 0}
+
 
 class Student:
     def __init__(self, roll_no, courses):
@@ -103,23 +111,31 @@ def calculate_degree(matrix, courses):
         courses[i].degree = np.sum(matrix[i]!= 0)
 
 def initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS):
-    color_list = []
+    color_matrix = [[0 for x in range(TIME_SLOTS)] for x in range(MAX_SCHEDULE_DAYS)] 
 
     for day in range(1, MAX_SCHEDULE_DAYS+1):
         for slot in range(1, TIME_SLOTS+1):
             new_color = Color(day, slot)
-            color_list.append(new_color)
+            color_matrix[day-1][slot-1] = new_color
 
-    return color_list
+    return color_matrix
 
 def build_weight_matrix():
     with open('data_course.json') as data_file:
-        data = json.load(data_file)
+        course_data = json.load(data_file)
+
+    with open('mid_sem_exam_schedule.json') as data_file:
+        exam_data = json.load(data_file)
 
     courses=[]
     counter = 1
-    for course_code, students in data.iteritems():
-        courses.append(Course(counter, course_code, students))
+    for course_code, students in course_data.iteritems():
+        try:
+            old_day, old_slot = exam_data[course_code][0], exam_data[course_code][1]
+            courses.append(Course(counter, course_code, students, old_day, old_slot))
+        except:
+            print "No exam schedule for ", course_code
+            courses.append(Course(counter, course_code, students, "NA", "NA"))
         counter+=1
 
     total = len(courses)
@@ -140,10 +156,6 @@ def build_weight_matrix():
                 courses[j].adjacency_list.append(courses[i])
     
     return graph, courses
-
-def build_color_matrix(MAX_SCHEDULE_DAYS, TIME_SLOTS):
-    matrix = np.zeros([MAX_SCHEDULE_DAYS, TIME_SLOTS])
-    return matrix
 
 def initialize_lecture_halls(color_list):
     with open('lecture_halls.json') as data_file:
@@ -181,8 +193,40 @@ def total_dis(color_1, color_2):
 
     return GAMMA*d2 + d1
 
-def get_first_node_color(course):
-    pass
+def binarySearch(alist, item):
+    first = 0
+    last = len(alist)-1
+    found = False
+    
+    while first<=last and not found:
+        midpoint = (first + last)//2
+        if alist[midpoint] == item:
+            found = True
+        else:
+            if item < alist[midpoint]:
+                last = midpoint-1
+            else:
+                first = midpoint+1
+    return last
+
+def select_lecture_halls(max_students,lecturehall_list):
+    lecturehall_list=sorted(lecturehall_list, key=MyFn)
+    while(max_students>0):
+        i=binarySearch(lecturehall_list.List, max_students)
+        max_students=max_students-lecturehall_list.List[i]
+        lecturehall_list.List.delete(i)
+    #return [L1, 'O']
+
+
+def get_first_node_color(course, color_matrix):
+
+    for j in range(1, MAX_SCHEDULE_DAYS):
+        for k in range(1, TIME_SLOTS):
+            a = select_lecture_halls(course.no_of_students, color_matrix[j][k].get_lecture_halls())
+            if a:
+                return a
+
+    return None
 
 def get_smallest_available_color(course):
     adj_list = course.adjacency_list
@@ -234,8 +278,7 @@ def check_three_exams_contraint(course, color_jk, j):
 
     return True
 
-#if __name__ == "__main__":
-def main():
+if __name__ == "__main__":
     graph, course_list = build_weight_matrix()
     calculate_degree(graph, course_list)    
 
