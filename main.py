@@ -2,7 +2,7 @@ import numpy as np
 import json, operator
 
 MAX_SCHEDULE_DAYS = 8
-TIME_SLOTS = 5
+TIME_SLOTS = 3
 
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
@@ -338,6 +338,7 @@ def check_three_exams_constraint(course, color_jk, j, color_matrix):
 
 if __name__ == "__main__":
     graph, course_list = build_weight_matrix()
+    print len(course_list)
     calculate_degree(graph, course_list)    
 
     sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
@@ -402,5 +403,5 @@ if __name__ == "__main__":
         for j in range(TIME_SLOTS):
             l = []
             for k in color_matrix[i][j].courses:
-                l.append(key.course_code)
+                l.append(k.course_code)
             print i, j, " : ", l
