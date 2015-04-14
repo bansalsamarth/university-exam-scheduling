@@ -1,17 +1,8 @@
 import numpy as np
-import json
-
-#Can add a heuristic when assiging a node color. 
-#We can assume minimum number of lecture halls. eg 100 students per lecture hall
-#If capacity of color is less than that, ignore the color and move to next. 
-#After that, we use our algorithm to assign find optimum number of lecture halls 
-#ensuring minimum wastage of space.
-
-#For every course, when we return a color, we need to return a LectureHall object as well
-#so that we can record which lecture hall and which seats do the particular course has to occupy
+import json, operator
 
 MAX_SCHEDULE_DAYS = 8
-TIME_SLOTS = 5
+TIME_SLOTS = 3
 
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
@@ -23,10 +14,10 @@ class Course:
         self.no_of_students = len(student_list)
         self.degree = 0
         self.max_adjacency = 0
-        self.concurrency_level = 0 #No of rooms required
+        #self.concurrency_level = 0 #No of rooms required
         self.adjacency_list = []
         self.color = None #Assign a color object here
-        self.lecture_hall = None
+        self.lecture_hall = []
         self.old_day = old_day
         self.old_slot = old_slot
 
@@ -51,13 +42,13 @@ class Color:
         #Returns max students that can be accomodated
         capacity = 0
         for i in self.lecture_halls:
-            capacity += i.availability['total']
+            capacity += i.availability()['total']
         return capacity
 
-    def get_lecture_halls(self, lecture_halls, course):
+    def lecture_hall_list(self, lecture_halls, course):
         available_halls = []
         for i in self.lecture_halls:
-            if i.availability['total']>0:
+            if i.availability()['total']>0:
                 available_halls.append(i)
         return available_halls
 
@@ -79,20 +70,27 @@ class LectureHall:
     def availability(self):
         if self.odd and self.even:
             return {
-                "O" : self.odd_capacity, 
-                "E" : self.even_capacity, 
-                "total": max(self.odd_capacity, self.even_capacity)
+                "total": max(self.odd_capacity, self.even_capacity),
+                "seats": (self.odd_capacity, self.even_capacity)
             }
 
         elif self.odd:
-            return {"O" : self.odd_capacity, "total" : self.odd_capacity}
+            return {
+                "total" : self.odd_capacity,
+                "seats" : (self.odd_capacity, 0)
+            }
 
-        else self.even:
-            return {"E" : self.even_capacity, "total" : self.even_capacity}
+        elif self.even:
+            return {
+                "total" : self.even_capacity,
+                "seats" : (0, self.even_capacity)
+            }
 
         else:
-            return {"total" : 0}
-
+            return {
+                "total" : 0,
+                "seats" : (0,0)
+            }
 
 class Student:
     def __init__(self, roll_no, courses):
@@ -129,14 +127,17 @@ def build_weight_matrix():
 
     courses=[]
     counter = 1
+    err_courses = []
     for course_code, students in course_data.iteritems():
         try:
             old_day, old_slot = exam_data[course_code][0], exam_data[course_code][1]
             courses.append(Course(counter, course_code, students, old_day, old_slot))
         except:
-            print "No exam schedule for ", course_code
-            courses.append(Course(counter, course_code, students, "NA", "NA"))
+            err_courses.append(course_code)
+            courses.append(Course(counter, course_code, students, 0, 0))
         counter+=1
+    print "These courses didn't have exam data : ", err_courses
+    print "Total : ", len(err_courses)
 
     total = len(courses)
     graph = np.zeros([total, total])
@@ -157,14 +158,16 @@ def build_weight_matrix():
     
     return graph, courses
 
-def initialize_lecture_halls(color_list):
+def initialize_lecture_halls(color_matrix):
     with open('data/lecture_halls.json') as data_file:
         data = json.load(data_file)
 
-    for color in color_list:
-        for number, capacity in data.iteritems():
-            lec_hall = LectureHall(number, capacity, color)
-            color.lecture_halls.append(lec_hall)
+    for j in range(MAX_SCHEDULE_DAYS):
+        for k in range(TIME_SLOTS):
+            color = color_matrix[j][k]
+            for number, capacity in data.iteritems():
+                lec_hall = LectureHall(number, capacity, color)
+                color.lecture_halls.append(lec_hall)
 
 def initialize_students():
     with open('data/data_student.json') as data_file:
@@ -193,42 +196,83 @@ def total_dis(color_1, color_2):
 
     return GAMMA*d2 + d1
 
-def binarySearch(alist, item):
+def binary_search(alist, item):
     first = 0
-    last = len(alist)-1
+    last = len(alist) - 1
     found = False
     
-    while first<=last and not found:
-        midpoint = (first + last)//2
-        if alist[midpoint] == item:
+    while first <= last and not found:
+        midpoint = (first + last) // 2
+        if alist[midpoint][1] == item:
             found = True
+            last = midpoint-1
         else:
-            if item < alist[midpoint]:
-                last = midpoint-1
+            if item < alist[midpoint][1]:
+                last = midpoint - 1
             else:
-                first = midpoint+1
-    return last
+                first = midpoint + 1
+    return last+1
 
-def select_lecture_halls(max_students,lecturehall_list):
-    lecturehall_list=sorted(lecturehall_list, key=MyFn)
-    while(max_students>0):
-        i=binarySearch(lecturehall_list.List, max_students)
-        max_students=max_students-lecturehall_list.List[i]
-        lecturehall_list.List.delete(i)
-    #return [L1, 'O']
+def get_lecture_hall(max_students, sorted_list):
+    lecturehall_list=list(sorted_list)
+    selected_lecture_halls = {}    
+    while(max_students > 0):
+        i = binary_search(lecturehall_list, max_students)
+        if(i < 0):
+            i = 0
+        elif(i >= len(lecturehall_list)):
+            i = len(lecturehall_list) - 1
+        if(i<0):
+            selected_lecture_halls={}
+            break
+        max_students -= lecturehall_list[i][1]
+        lecturehall_object =lecturehall_list[i][0][0]
+        lecture_hall = lecturehall_object.number
+        del lecturehall_list[i]
+        oe = lecturehall_list[i][0][1]    
+        selected_lecture_halls[lecturehall_object] = oe
+        for j in range(len(lecturehall_list)):
+            if(lecturehall_list[j][0][0].number==lecture_hall):
+                del lecturehall_list[j]
+                break
+    return selected_lecture_halls
+    
+
+def select_lecture_hall(no_of_students,lecture_halls):  
+    lecture_hall_dict = {}
+    for i in lecture_halls:
+        lecture_hall_dict[i]=i.availability()['seats']
+    
+    lecture_hall_tuple_list = {}
+
+    for num, value in lecture_hall_dict.iteritems():
+        lecture_hall_tuple_list[(num,'o')] = value[0]
+        lecture_hall_tuple_list[(num,'e')] = value[1]
+    sorted_list = sorted(lecture_hall_tuple_list.items(), key=operator.itemgetter(1))
+    return get_lecture_halls(no_of_students, sorted_list)
+
+def update_lecture_hall(hall_list, course, color):
+    course.lecture_hall = hall_list
+    color = course.assign_color(color)
+    for hall, position in hall_list.iteritems():
+        if position=='o':
+            hall.odd = 1
+        elif position=='e':
+            hall.even = 1
 
 
 def get_first_node_color(course, color_matrix):
 
-    for j in range(1, MAX_SCHEDULE_DAYS):
-        for k in range(1, TIME_SLOTS):
-            a = select_lecture_halls(course.no_of_students, color_matrix[j][k].get_lecture_halls())
-            if a:
-                return a
+    for j in range(MAX_SCHEDULE_DAYS):
+        for k in range(TIME_SLOTS):
+            hall_list = select_lecture_halls(course.no_of_students, color_matrix[j][k].lecture_hall_list())
+            if hall_list:
+                update_lecture_hall(hall_list, course, color_matrix[j][k])
+                return color_matrix[j][k]
 
     return None
 
-def get_smallest_available_color(course):
+def get_smallest_available_color(course, color_matrix):
     adj_list = course.adjacency_list
     for j in range(MAX_SCHEDULE_DAYS):
         for k in range(TIME_SLOTS):
@@ -242,15 +286,18 @@ def get_smallest_available_color(course):
                             if dis_1(color, color_matrix[j][k]) <= 1:
                                 
                                 valid = False
-                                break #Need to exit loop. Is this the right way?
+                                break
 
-                        if color.capacity_available <= course.concurrency_level:
+                        #TODO
+                        assigned_lh = select_lecture_hall(course.no_of_students, color.lecture_halls)
+                        #if color.capacity_available <= course.concurrency_level:
+                        if not assigned_lh:
                             valid = False
-                            break #Exit loop
+                            break
                            
                         if check_three_exams_constraint(course, color_matrix[j][k], j) == False:
                             valid = False
-                            break #Exit Loop
+                            break
                     else:
                         valid = False
                         break #exit loop
@@ -258,17 +305,17 @@ def get_smallest_available_color(course):
                     break
                     #exit the current iteration of loop?
             if valid == True:
-                return color[j][k]
+                return color[j][k], assigned_lh
                 
     return None    
 
-def check_three_exams_contraint(course, color_jk, j):
+def check_three_exams_constraint(course, color_jk, j, color_matrix):
     students = course.student_list
 
     for r in range(len(students)):
         counter = 0
         for q in range(TIME_SLOTS):
-            course_list = color_jk.courses
+            course_list = color_matrix[j][q].courses
             for u in range(len(course_list)):
                 students_u = course_list[u].student_list
                 if students[r] in students_u:
@@ -285,6 +332,10 @@ if __name__ == "__main__":
     sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
     
     num_colored_courses = 0
+
+    color_matrix = initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS)
+    initialize_students()
+    initialize_lecture_halls(color_matrix)
     
     for course in sorted_courses:
         if num_colored_courses == len(course_list):
@@ -292,32 +343,30 @@ if __name__ == "__main__":
     
         if not course.color:
     
-            if sorted_courses.index(course)==1:
-                r_ab = get_first_node_color(course)
+            if sorted_courses.index(course)==0:
+                r_ab = get_first_node_color(course, color_matrix)
     
                 if r_ab == None:
                     print "No schedule is possible"
                     break 
     
             else:
-                r_ab = get_smallest_available_color(course)
+                r_ab, hall_list = get_smallest_available_color(course, color_matrix)
             
             if r_ab:
                 course.assign_color(r_ab)
                 num_colored_courses+=1 
-                """Update concurrency level of the color - subtract concurrency of course from that of slot
-                Update according to class deginition                
-                """
+                if hall_list:
+                    update_lecture_hall(hall_list, course, r_ab)
     
         m = course.ordered_adjacency_list(course)
     
         for adj_course in m:
             if not adj_course.color:
-                r_cd = get_smallest_available_color(adj_course)
+                r_cd, hall_list = get_smallest_available_color(adj_course)
     
                 if r_cd:
                     adj_course.assign_color(r_cd)
                     num_colored_courses+=1
-                    """Update concurrency level of the color - subtract concurrency of course from that of slot
-                    Update according to class deginition                
-                    """
+                    if hall_list:
+                        update_lecture_hall(hall_list, course, r_cd)
