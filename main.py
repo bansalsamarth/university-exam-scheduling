@@ -1,8 +1,8 @@
 import numpy as np
 import json, operator
 
-MAX_SCHEDULE_DAYS = 4
-TIME_SLOTS = 3
+MAX_SCHEDULE_DAYS = 8
+TIME_SLOTS = 5
 
 GAMMA = 0.5 #Change to proivde a different coloring scheme
 
@@ -13,8 +13,8 @@ class Course:
         self.student_list = student_list
         self.no_of_students = len(student_list)
         self.degree = 0
+        self.flag = 1
         self.max_adjacency = 0
-        #self.concurrency_level = 0 #No of rooms required
         self.adjacency_list = []
         self.color = None #Assign a color object here
         self.lecture_hall = []
@@ -22,14 +22,12 @@ class Course:
         self.old_slot = old_slot
 
     def ordered_adjacency_list(self):
-        #What is order?
-        return self.adjacency_list
+        return sorted(self.adjacency_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
 
     def assign_color(self, color):
         self.color = color
         color.courses.append(self)
-        #print "Assigned : ", self.course_code, color.day, color.slot
-        #Anything else?
+        print "Assigned : ", self.course_code, color.day, color.slot, self.degree, self.no_of_students
         return None
 
     def get_hall_list(self):
@@ -72,8 +70,8 @@ class LectureHall:
         
         color.lecture_halls.append(self)
 
-        #O implies that odd/even seats are not occupied. 
-        #1 implies that odd/even seats are occupied
+        #O implies that odd/even seats are occupied. 
+        #1 implies that odd/even seats are not occupied
         self.odd = 1
         self.even = 1
 
@@ -141,10 +139,13 @@ def build_weight_matrix():
     with open('data/mid_sem_exam_schedule.json') as data_file:
         exam_data = json.load(data_file)
 
+
     courses=[]
     counter = 1
     err_courses = []
     for course_code, students in course_data.iteritems():
+        if len(students) == 0:
+            continue
         try:
             old_day, old_slot = exam_data[course_code][0], exam_data[course_code][1]
             courses.append(Course(counter, course_code, students, old_day, old_slot))
@@ -152,8 +153,6 @@ def build_weight_matrix():
             err_courses.append(course_code)
             courses.append(Course(counter, course_code, students, 0, 0))
         counter+=1
-    #print "These courses didn't have exam data : ", err_courses
-    #print "Total : ", len(err_courses)
 
     total = len(courses)
     graph = np.zeros([total, total])
@@ -281,8 +280,7 @@ def update_lecture_hall(hall_list, course, color):
 
         course.lecture_hall = hall_list
 
-        for hall, position in hall_list.iteritems():
-            #print hall.number,position
+        for hall, position in course.lecture_hall.iteritems():
             if position=='o':
                 hall.odd = 0
             elif position=='e':
@@ -294,9 +292,7 @@ def get_first_node_color(course, color_matrix):
     for j in range(MAX_SCHEDULE_DAYS):
         for k in range(TIME_SLOTS):
             hall_list = select_lecture_hall(course.no_of_students, color_matrix[j][k])
-            #print course.course_code, hall_list
             if hall_list:
-                #update_lecture_hall(hall_list, course, color_matrix[j][k])
                 return color_matrix[j][k], hall_list
 
     return None
@@ -316,29 +312,21 @@ def get_smallest_available_color(course, color_matrix):
                                 
                                 valid = False
                                 break
-
-                        #TODO
-                        assigned_lh = select_lecture_hall(course.no_of_students, color)
-                        #if color.capacity_available <= course.concurrency_level:
-                        if not assigned_lh:
-                            valid = False
-                            break
                            
                         if check_three_exams_constraint(course, color_matrix[j][k], j, color_matrix) == False:
+                        
                             valid = False
                             break
                     else:
                         valid = False
-                        break #exit loop
+                        break
                 else:
                     continue
-                    #exit the current iteration of loop?
-                #TODO
+
             if valid == True:
-                try:
+                assigned_lh = select_lecture_hall(course.no_of_students, color_matrix[j][k])
+                if color_matrix[j][k] and assigned_lh:
                     return color_matrix[j][k], assigned_lh
-                except:
-                    return None
                 
     return None    
 
@@ -364,10 +352,6 @@ if __name__ == "__main__":
     print "Total Courses : ", len(course_list)
 
     ct = 0
-    for i in course_list:
-        if i.no_of_students<20:
-            ct+=1
-            print i.no_of_students, i.course_code
     print ct
     sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
     deg = []
@@ -375,21 +359,17 @@ if __name__ == "__main__":
     num_colored_courses = 0
 
     color_matrix = initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS)
-    """for i in range(MAX_SCHEDULE_DAYS):
-        for j in range(TIME_SLOTS):
-            print color_matrix[i][j].day, color_matrix[i][j].slot
-    """
 
     s = initialize_students()
 
     lh_list = initialize_lecture_halls(color_matrix)
-    
+
+
     for course in sorted_courses:
-        #print course.course_code, num_colored_courses
         if num_colored_courses == len(course_list):
-            break #exit loop and finish
+            break
     
-        if not course.color:
+        if not course.color and course.flag:
     
             if sorted_courses.index(course)==0:
                 r_ab, hall_list = get_first_node_color(course, color_matrix)
@@ -403,24 +383,24 @@ if __name__ == "__main__":
                     r_ab, hall_list = res
                 else:
                     r_ab = None
+                    course.flag = 0
 
             if r_ab:
-                #course.assign_color(r_ab)
                 num_colored_courses+=1 
                 if hall_list:
                     update_lecture_hall(hall_list, course, r_ab)
     
         m = course.ordered_adjacency_list()
         for adj_course in m:
-            if not adj_course.color:
+            if not adj_course.color and adj_course.flag:
                 res = get_smallest_available_color(adj_course, color_matrix)
                 if res:
                     r_cd, hall_list = res
                 else:
                     r_cd = None
+                    adj_course.flag= 0
  
                 if r_cd:
-                    #adj_course.assign_color(r_cd)
                     num_colored_courses+=1
                     if hall_list:
                         update_lecture_hall(hall_list, adj_course, r_cd)
@@ -435,6 +415,7 @@ if __name__ == "__main__":
             print res
     print "\n"
 
+    alloted_courses = []
     for i in range(MAX_SCHEDULE_DAYS):
         for j in range(TIME_SLOTS):
             l = []
@@ -442,6 +423,13 @@ if __name__ == "__main__":
             for k in color_matrix[i][j].courses:
                 count+=1
                 num+=k.no_of_students
+                alloted_courses.append(k)
                 l.append(k.course_code)
             print "Day ", i, " Slot ", j, " : ", "Courses : ", l, "students : ", num
     print "Total Courses : ", count
+
+    for i in course_list:
+        if i not in alloted_courses:
+            print i.course_code, i.no_of_students, i.degree
+
+    print len(course_list)
