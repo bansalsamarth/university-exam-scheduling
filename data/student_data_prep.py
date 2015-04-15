@@ -1,3 +1,12 @@
+def clean_courses(course_list):
+	res = []
+	for crs in course_list:
+		if crs[-1].isalpha():
+			res.append(crs[:-1])
+		else:
+			res.append(crs)
+	return res
+
 import json
 
 f = open('data_student_courses.txt')
@@ -11,7 +20,7 @@ for i in f:
     	t = j.replace("\r\n", "")
     	clean.append(t)
 
-    students[clean[0]] = clean[1:]
+    students[clean[0]] = clean_courses(clean[1:])
 
 data = json.dumps(students)
 

@@ -11,7 +11,7 @@ for i in f:
 	except:
 		pass
 	try:
-		if d[0][-1] == "A":
+		if d[0][-1].isalpha():
 			c = d[0][:-1]
 		else:
 			c = d[0]
