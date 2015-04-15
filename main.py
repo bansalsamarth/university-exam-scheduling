@@ -1,6 +1,8 @@
 import numpy as np
 import json, operator
 
+from test import *
+
 MAX_SCHEDULE_DAYS = 8
 TIME_SLOTS = 5
 
@@ -139,7 +141,7 @@ def build_weight_matrix():
     with open('data/mid_sem_exam_schedule.json') as data_file:
         exam_data = json.load(data_file)
 
-
+    course_index = {}
     courses=[]
     counter = 1
     err_courses = []
@@ -148,10 +150,12 @@ def build_weight_matrix():
             continue
         try:
             old_day, old_slot = exam_data[course_code][0], exam_data[course_code][1]
-            courses.append(Course(counter, course_code, students, old_day, old_slot))
+            crs = Course(counter, course_code, students, old_day, old_slot)
         except:
             err_courses.append(course_code)
-            courses.append(Course(counter, course_code, students, 0, 0))
+            crs = Course(counter, course_code, students, 0, 0)
+        courses.append(crs)
+        course_index[course_code] = crs
         counter+=1
 
     total = len(courses)
@@ -171,7 +175,7 @@ def build_weight_matrix():
                 courses[i].adjacency_list.append(courses[j])
                 courses[j].adjacency_list.append(courses[i])
     
-    return graph, courses
+    return graph, courses, course_index
 
 def initialize_lecture_halls(color_matrix):
     with open('data/lecture_halls.json') as data_file:
@@ -188,26 +192,47 @@ def initialize_lecture_halls(color_matrix):
                 color.lecture_halls.append(lec_hall)
     return lhc
 
-def initialize_students():
+def initialize_students(course_index):
     with open('data/data_student.json') as data_file:
         data = json.load(data_file)
 
     student_list = []
 
     for roll, courses in data.iteritems():
-        student_list.append(Student(roll, courses))
+        course_objects = []
+        for i in courses:
+            if i in course_index.keys():
+                course_objects.append(course_index[i])
+                #print "done"
+            else:
+                print "No object for ", i
+
+
+        std = Student(roll, course_objects)
+        student_list.append(std)
+
+    print std.roll_no, std.courses_enrolled
 
     return student_list
-
-def dis_2(color_1, color_2):
-    return abs(color_1.day - color_2.day)
-
 def dis_1(color_1, color_2):
     #raisse exception if days not same
     if color_1.day == color_2.day:
         return abs(color_1.slot - color_2.slot)
     else:
         return "NA"
+
+def dis_2(color_1, color_2):
+    return abs(color_1.day - color_2.day)
+
+def dis_3(color_1, color_2):
+    num_1 = (color_1.day)*(TIME_SLOTS) + color_1.slot
+    num_2 = (color_2.day)*(TIME_SLOTS) + color_2.slot
+
+    if abs(num_1 - num_2) < 4:
+        return False
+
+    return True
+
 
 def total_dis(color_1, color_2):
     d2 = dis_2(color_1, color_2)
@@ -297,26 +322,36 @@ def get_first_node_color(course, color_matrix):
 
     return None
 
-def get_smallest_available_color(course, color_matrix):
+def get_smallest_available_color(course, color_matrix, constraints):
     adj_list = course.adjacency_list
     for j in range(MAX_SCHEDULE_DAYS):
         for k in range(TIME_SLOTS):
             valid = True
-            
+
+            assigned_lh = select_lecture_hall(course.no_of_students, color_matrix[j][k])
+
+            if not assigned_lh:
+                valid= False
+                continue
+
             for r in range(len(adj_list)):
                 color = adj_list[r].color
                 if color:
                     if color.day!= j or color.slot!=k:
-                        if dis_2(color, color_matrix[j][k]) == 0:
-                            if dis_1(color, color_matrix[j][k]) <= 1:
-                                
+                        if "check_dis_3" in constraints:
+                            if not dis_3(color, color_matrix[j][k]):
                                 valid = False
                                 break
-                           
-                        if check_three_exams_constraint(course, color_matrix[j][k], j, color_matrix) == False:
-                        
-                            valid = False
-                            break
+
+                        if "check_consecutive" in constraints:
+                            if dis_2(color, color_matrix[j][k]) == 0:
+                                if dis_1(color, color_matrix[j][k]) <= 1:
+                                    valid = False
+                                    break
+                        if "check_three_exams" in constraints:   
+                            if check_three_exams_constraint(course, color_matrix[j][k], j, color_matrix) == False:
+                                valid = False
+                                break
                     else:
                         valid = False
                         break
@@ -324,8 +359,7 @@ def get_smallest_available_color(course, color_matrix):
                     continue
 
             if valid == True:
-                assigned_lh = select_lecture_hall(course.no_of_students, color_matrix[j][k])
-                if color_matrix[j][k] and assigned_lh:
+                if color_matrix[j][k]:
                     return color_matrix[j][k], assigned_lh
                 
     return None    
@@ -345,40 +379,22 @@ def check_three_exams_constraint(course, color_jk, j, color_matrix):
                         return False
 
     return True
-
-if __name__ == "__main__":
-    graph, course_list = build_weight_matrix()
-    calculate_degree(graph, course_list)    
-    print "Total Courses : ", len(course_list)
-
-    ct = 0
-    print ct
-    sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
-    deg = []
-
-    num_colored_courses = 0
-
-    color_matrix = initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS)
-
-    s = initialize_students()
-
-    lh_list = initialize_lecture_halls(color_matrix)
-
-
+def schedule_exam(sorted_courses,constraints,count):
+    num_colored_courses=0 
     for course in sorted_courses:
-        if num_colored_courses == len(course_list):
+        if num_colored_courses == len(sorted_courses):
             break
     
         if not course.color and course.flag:
     
-            if sorted_courses.index(course)==0:
+            if sorted_courses.index(course)==0 and count==0:
                 r_ab, hall_list = get_first_node_color(course, color_matrix)
                 if r_ab == None:
                     print "No schedule is possible"
                     break
         
             else:
-                res = get_smallest_available_color(course, color_matrix)
+                res = get_smallest_available_color(course, color_matrix,constraints)
                 if res:
                     r_ab, hall_list = res
                 else:
@@ -393,7 +409,7 @@ if __name__ == "__main__":
         m = course.ordered_adjacency_list()
         for adj_course in m:
             if not adj_course.color and adj_course.flag:
-                res = get_smallest_available_color(adj_course, color_matrix)
+                res = get_smallest_available_color(adj_course, color_matrix,constraints)
                 if res:
                     r_cd, hall_list = res
                 else:
@@ -404,6 +420,55 @@ if __name__ == "__main__":
                     num_colored_courses+=1
                     if hall_list:
                         update_lecture_hall(hall_list, adj_course, r_cd)
+    alloted_courses = []
+    for i in range(MAX_SCHEDULE_DAYS):
+        for j in range(TIME_SLOTS):
+            for k in color_matrix[i][j].courses:
+                alloted_courses.append(k)
+    print len(alloted_courses)
+    unalloted_courses=list(set(sorted_courses)-set(sorted_courses).intersection(alloted_courses))
+    for c in unalloted_courses:
+        c.flag=1
+    return sorted(unalloted_courses, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
+
+def hard_schedule(unalloted_courses):
+    constraints=["check_consecutive","check_three_exams", "check_dis_3"]
+
+    unalloted_courses=schedule_exam(unalloted_courses, constraints,0)
+    constraints =["check_three_exams"]
+
+    unalloted_courses=schedule_exam(unalloted_courses, constraints,1)
+    constraints =["check_dis_3"]
+
+    unalloted_courses=schedule_exam(unalloted_courses, constraints,1)
+    constraints =["check_consecutive"]
+
+    unalloted_courses=schedule_exam(unalloted_courses, constraints,2)
+    constraints =[""]
+    
+    unalloted_courses=schedule_exam(unalloted_courses, constraints,3)
+    return len(unalloted_courses)
+
+if __name__ == "__main__":
+
+    graph, course_list, course_index = build_weight_matrix()
+    calculate_degree(graph, course_list)    
+    print "Total Courses : ", len(course_list)
+
+    ct = 0
+    print ct
+    sorted_courses = sorted(course_list, key = lambda course: (course.degree, course.max_adjacency), reverse = True)
+    deg = []
+
+    color_matrix = initiailize_colors(MAX_SCHEDULE_DAYS, TIME_SLOTS)
+
+    student_list = initialize_students(course_index)
+
+    lh_list = initialize_lecture_halls(color_matrix)
+    no_ofunscheduled_courses=hard_schedule(sorted_courses)
+    if(no_ofunscheduled_courses!=0):
+        print "Increase days or slots.",no_ofunscheduled_courses, " courses remains unscheduled"
+        
     count=0
     num = 0
     for i in course_list:
@@ -428,8 +493,4 @@ if __name__ == "__main__":
             print "Day ", i, " Slot ", j, " : ", "Courses : ", l, "students : ", num
     print "Total Courses : ", count
 
-    for i in course_list:
-        if i not in alloted_courses:
-            print i.course_code, i.no_of_students, i.degree
-
-    print len(course_list)
+    test_for_clash(student_list, TIME_SLOTS)
