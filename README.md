@@ -8,10 +8,14 @@ We are scheduling exams in a university using Graph Coloring. The algorithm can 
 
 ####Input
 (a) Course Data : Course Code, Students Enrolled
+
 (b) Lecture Hall Data : Seats available in odd and even rows respectively, for exam purposes.
+
 (c) Current Schedule : Exam schedule as alloted by university, for comparison purposes. 
 
 ####Output
 (a) Day and Slot alloted for all courses
+
 (b) Lecture Hall and seating arrangement(odd or even) for all courses.
+
 (c) Allotment done taking care of no clash for any students, and constraints to make the exam schedule convenient for most students. 
