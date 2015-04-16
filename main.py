@@ -114,6 +114,12 @@ class Student:
         self.roll_no = roll_no
         self.courses_enrolled = courses
 
+        #For count, key will be number of exams in one day
+        #eg {1:4, 2:3} means that on 4 days, student has 1 exam, 
+        #whereas on 3 days, students has 2
+        self.count = {}
+
+
     def fairness_quotient(self):
         pass
 
@@ -494,3 +500,4 @@ if __name__ == "__main__":
     print "Total Courses : ", count
 
     test_for_clash(student_list, TIME_SLOTS)
+    test_constraints(student_list, TIME_SLOTS)
