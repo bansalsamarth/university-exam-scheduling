@@ -19,3 +19,13 @@ We are scheduling exams in a university using Graph Coloring. The algorithm can 
 (b) Lecture Hall and seating arrangement(odd or even) for all courses.
 
 (c) Allotment done taking care of no clash for any students, and constraints to make the exam schedule convenient for most students. 
+
+####Instructions
+Install NumPy
+
+pip install numpy
+
+The data folder includes scripts for scraping the data and stroing the json. No need to run them, as the data for IITK has been scraped and saved in the folder.
+
+
+To run : python main.py
