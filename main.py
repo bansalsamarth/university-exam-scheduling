@@ -1,5 +1,5 @@
 import numpy as np
-import json, operator
+import json, operator, csv 
 
 from test import *
 
@@ -28,6 +28,7 @@ class Course:
 
     def assign_color(self, color):
         self.color = color
+
         color.courses.append(self)
         print "Assigned : ", self.course_code, color.day, color.slot, self.degree, self.no_of_students
         return None
@@ -164,6 +165,8 @@ def build_weight_matrix():
         course_index[course_code] = crs
         counter+=1
 
+    out = open('err_courses.txt', 'w')
+    out.write(str(err_courses))
     total = len(courses)
     graph = np.zeros([total, total])
 
@@ -455,6 +458,20 @@ def hard_schedule(unalloted_courses):
     unalloted_courses=schedule_exam(unalloted_courses, constraints,3)
     return len(unalloted_courses)
 
+def output_to_csv(TIME_SLOTS, MAX_SCHEDULE_DAYS, color_matrix):
+    with open('exam_schedule.csv', 'wb') as csvfile:
+        schedule = csv.writer(csvfile, delimiter = ',')
+        schedule.writerow(['Exam Schedule'])
+        for i in range(MAX_SCHEDULE_DAYS):
+            for j in range(TIME_SLOTS):
+                color = color_matrix[i][j]
+                color_str = ""
+                for t in color.courses:
+                    color_str+= t.course_code + ", "
+                day = "Day " + str(i+1) + " Slot " + str(j+1)
+                schedule.writerow([day, color_str])
+            schedule.writerow([])
+
 if __name__ == "__main__":
 
     graph, course_list, course_index = build_weight_matrix()
@@ -485,6 +502,8 @@ if __name__ == "__main__":
             res += " Strength: " + str(i.no_of_students)
             print res
     print "\n"
+
+    output_to_csv(TIME_SLOTS, MAX_SCHEDULE_DAYS, color_matrix)
 
     alloted_courses = []
     for i in range(MAX_SCHEDULE_DAYS):

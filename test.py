@@ -10,10 +10,7 @@ def test_for_clash(students, TIME_SLOTS):
 			if crs.color:
 				a.append(color_num(crs.color, TIME_SLOTS))
 				if len(a)!=len(set(a)):
-					print a, set(a)
 					clash.append(student.roll_no)
-	
-	print "Clash for : ", len(set(clash)), " Total : ", len(students)
 
 def check_three_exam_constraint(student, courses):
 	days = []
@@ -37,8 +34,6 @@ def check_three_exam_constraint(student, courses):
 	student.count = count
 
 	if 3 in count.keys():
-		print count
-		print "Failed for ", student.roll_no
 		return False
 	
 	return True
@@ -84,4 +79,3 @@ def test_constraints(students, TIME_SLOTS):
 					flag = 1
 		if flag:
 			slot_fails.append(student)
-	print len(three_fails), len(set(slot_fails))
